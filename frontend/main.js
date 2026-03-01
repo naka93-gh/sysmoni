@@ -1,32 +1,25 @@
 // main.js — Go 側から ExecJS 経由で呼ばれる UI 更新ロジック
 //
-// Go の main.go が 3 秒ごとに window.ExecJS("handleStats({...})") を実行し、
-// このファイルのグローバル関数 handleStats() にデータが渡される。
-// Wails のイベント API (@wailsio/runtime) はバンドラが必要なため使わず、
-// ExecJS + グローバル関数という直接的な方式を採用している。
+// Go の main.go がウィンドウ表示中に 3 秒ごとに ExecJS で
+// handleStats({...}) を呼び出してデータを渡す。
+// macOS WebKit は hidden ウィンドウの JS 実行を遅延するため、
+// Go 側でウィンドウ表示中のみ push する制御を行っている。
 
-// コア別バーの DOM を初回だけ生成するためのフラグ。
-// マシンのコア数は動的に変わらないので、2回目以降は DOM 生成をスキップする。
 let coresInitialized = false;
 
-// handleStats は Go から呼ばれるエントリポイント。
-// stats は monitor.go の SystemStats を JSON シリアライズしたオブジェクト。
+// handleStats は Go から ExecJS 経由で呼ばれるエントリポイント。
 function handleStats(stats) {
   if (!stats || !stats.cpu || !stats.mem) return;
   updateCPU(stats.cpu);
   updateMem(stats.mem);
 }
 
-// usageColor は使用率 0-100% を緑(120)→黄(60)→赤(0) の HSL 色相にマッピングする。
-// HSL を使うことで滑らかなグラデーションが得られる。
+// usageColor は使用率 0-100% を緑→黄→赤の HSL 色相にマッピングする。
 function usageColor(pct) {
   const hue = Math.max(0, (1 - pct / 100) * 120);
   return `hsl(${hue}, 80%, 50%)`;
 }
 
-// updateCPU は全体バー + コア別バーを更新する。
-// コア別バーの DOM は初回呼び出し時に動的生成する。
-// コア数はマシンによって異なる（8〜24+）ため、HTML に静的に書けない。
 function updateCPU(cpu) {
   const total = Math.round(cpu.totalUsage);
   document.getElementById("cpu-total").textContent = total + "%";
@@ -38,7 +31,6 @@ function updateCPU(cpu) {
 
   const grid = document.getElementById("cpu-cores");
 
-  // コア数が変わった場合（通常は初回のみ）に DOM を再構築する
   if (!coresInitialized || grid.children.length !== cpu.coreCount) {
     grid.innerHTML = "";
     for (let i = 0; i < cpu.coreCount; i++) {
@@ -53,7 +45,6 @@ function updateCPU(cpu) {
     coresInitialized = true;
   }
 
-  // 各コアのバー幅と色を更新。CSS transition で滑らかにアニメーションする。
   for (let i = 0; i < cpu.perCore.length; i++) {
     const pct = Math.round(cpu.perCore[i]);
     const fill = document.getElementById("core-" + i);
@@ -68,16 +59,11 @@ function updateCPU(cpu) {
   }
 }
 
-// formatBytes はバイト数を "X.X GB" 形式に変換する。
-// 10 GB 以上は小数点以下を省略して見やすくしている。
 function formatBytes(bytes) {
   const gb = bytes / (1024 * 1024 * 1024);
   return gb >= 10 ? gb.toFixed(0) + " GB" : gb.toFixed(1) + " GB";
 }
 
-// updateMem はメモリセクションの使用率バー・数値を更新する。
-// メモリバーは CPU と違い青色固定。使用率で色を変えないのは、
-// メモリは高使用率でも正常（キャッシュ活用）な場合が多いため。
 function updateMem(mem) {
   const pct = Math.round(mem.usedPercent);
   document.getElementById("mem-percent").textContent = pct + "%";

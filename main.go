@@ -2,10 +2,20 @@
 //
 // Wails v3 を使い、macOS メニューバーに常駐する CPU モニターを構成する。
 // Vite 等のビルドツールを使わず、frontend/ の HTML/CSS/JS を embed.FS で
-// 直接バイナリに埋め込んでいる。フロントエンドへのデータ送信には
-// Wails のイベント API ではなく ExecJS を使っている。これは Wails v3 の
-// JS ランタイムがバンドラ前提（@wailsio/runtime の import）で設計されており、
-// バンドラなしの vanilla JS から利用できないため。
+// 直接バイナリに埋め込んでいる。
+//
+// Go→JS のデータ送信には ExecJS を使用。ただし macOS WebKit は hidden
+// ウィンドウの JS 実行を遅延するため、ウィンドウ表示中のみ push する。
+// メニューバーのラベルはウィンドウ状態に関係なく常時更新する。
+//
+// 既知の問題:
+//
+//	macOS では Hidden:true で作成したウィンドウの WKWebView が
+//	wails:runtime:ready メッセージを postMessage で送っても Go 側に届かない。
+//	Wails runtime 自体は inject されるが、runtimeLoaded フラグが立たず
+//	ExecJS がキューに溜まったまま実行されない。
+//	対策として初回 WindowShow 時に HandleMessage を手動で呼び、
+//	runtime ready を強制的にトリガーしている。
 package main
 
 import (
@@ -15,6 +25,7 @@ import (
 	"io/fs"
 	"log"
 	"runtime"
+	"sync/atomic"
 	"time"
 
 	"github.com/shirou/gopsutil/v4/cpu"
@@ -23,16 +34,12 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/icons"
 )
 
-// go:embed は frontend/ ディレクトリをバイナリに埋め込む。
-// all: プレフィックスで . や _ 始まりのファイルも含める。
-//
 //go:embed all:frontend
 var assets embed.FS
 
 func main() {
 	// embed.FS は "frontend/index.html" のようなパスになるため、
 	// fs.Sub で "frontend" を剥がし、ルート直下に index.html が来るようにする。
-	// こうしないと AssetFileServerFS が "/" へのリクエストに対応できない。
 	frontendFS, _ := fs.Sub(assets, "frontend")
 
 	app := application.New(application.Options{
@@ -42,15 +49,10 @@ func main() {
 			Handler: application.AssetFileServerFS(frontendFS),
 		},
 		Mac: application.MacOptions{
-			// Accessory にすると Dock にアイコンを表示しない。
-			// メニューバー常駐アプリとして振る舞うために必要。
 			ActivationPolicy: application.ActivationPolicyAccessory,
 		},
 	})
 
-	// Frameless + AlwaysOnTop + Hidden で、メニューバーから
-	// ドロップダウンするポップアップ風のウィンドウを実現する。
-	// HideOnFocusLost により、ウィンドウ外クリックで自動的に閉じる。
 	window := app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Width:            320,
 		Height:           420,
@@ -62,69 +64,88 @@ func main() {
 		BackgroundColour: application.NewRGB(30, 30, 30),
 		URL:              "/",
 		Mac: application.MacWindow{
-			// macOS のすりガラス風背景を有効にする
 			Backdrop: application.MacBackdropTranslucent,
 		},
 	})
 
-	// ウィンドウの「閉じる」操作を非表示に置き換える。
-	// 閉じてしまうと WebView が破棄されて再表示できなくなるため。
 	window.RegisterHook(events.Common.WindowClosing, func(e *application.WindowEvent) {
 		window.Hide()
 		e.Cancel()
 	})
 
+	// windowVisible はウィンドウの表示状態を追跡する。
+	// ExecJS は hidden ウィンドウでは WebKit に遅延されるため、
+	// 表示中のみ push することで無駄な JS キューイングを防ぐ。
+	var windowVisible atomic.Bool
+
+	// showCh はウィンドウ表示イベントをバックグラウンド goroutine に通知する。
+	// バッファ 1 で、連続表示イベントを溜め込まずに最新のみ通知する。
+	showCh := make(chan struct{}, 1)
+
+	// runtimeReady: Hidden ウィンドウでは Wails runtime の "ready" メッセージが
+	// macOS WebKit の postMessage で失われ Go に届かない。
+	// 初回 WindowShow 時に HandleMessage を手動で呼んで補完する。
+	// HandleMessage は冪等: 2回目以降は pendingJS が空なので副作用なし。
+	var runtimeReady atomic.Bool
+
+	window.OnWindowEvent(events.Common.WindowShow, func(_ *application.WindowEvent) {
+		if runtimeReady.CompareAndSwap(false, true) {
+			window.HandleMessage("wails:runtime:ready")
+		}
+		windowVisible.Store(true)
+		select {
+		case showCh <- struct{}{}:
+		default:
+		}
+	})
+	window.OnWindowEvent(events.Common.WindowHide, func(_ *application.WindowEvent) {
+		windowVisible.Store(false)
+	})
+
 	systemTray := app.SystemTray.New()
 	if runtime.GOOS == "darwin" {
-		// テンプレートアイコンを使うと macOS がダーク/ライトモードに
-		// 応じて自動的に色を反転してくれる
 		systemTray.SetTemplateIcon(icons.SystrayMacTemplate)
 	}
 
-	// 右クリックメニュー。Wails v3 のスマートデフォルトにより、
-	// メニューが設定されている + OnRightClick 未設定の場合、
-	// 右クリックで自動的にメニューが開く。
 	menu := app.NewMenu()
 	menu.Add("終了").OnClick(func(ctx *application.Context) {
 		app.Quit()
 	})
 	systemTray.SetMenu(menu)
 
-	// ウィンドウをトレイアイコンに紐づける。Wails v3 のスマートデフォルトにより、
-	// AttachWindow + OnClick 未設定の場合、左クリックでウィンドウの表示/非表示がトグルされる。
-	// WindowOffset はアイコンとウィンドウ間の余白（px）。
 	systemTray.AttachWindow(window).WindowOffset(5)
 
-	// バックグラウンドでシステム情報を定期取得し、トレイラベルとフロントエンドを更新する
 	go func() {
-		// cpu.Percent(0, true) は前回呼び出しとの差分で計算するため、
-		// 初回は基準値の記録だけ行い、500ms 待ってから本計測を始める
 		cpu.Percent(0, true)
 		time.Sleep(500 * time.Millisecond)
 
-		push := func() {
-			stats, err := GetSystemStats()
-			if err != nil {
-				return
-			}
-			// メニューバーのラベルを更新（例: "45%"）
-			systemTray.SetLabel(fmt.Sprintf("%.0f%%", stats.CPU.TotalUsage))
-			// ExecJS でフロントエンドのグローバル関数 handleStats() を直接呼ぶ。
-			// JSON を引数としてインライン展開することで、イベント API を介さずにデータを渡す。
+		pushToFrontend := func(stats *SystemStats) {
 			data, _ := json.Marshal(stats)
 			window.ExecJS(fmt.Sprintf("handleStats(%s)", string(data)))
 		}
 
-		push()
+		update := func() {
+			stats, err := GetSystemStats()
+			if err != nil {
+				return
+			}
+			systemTray.SetLabel(fmt.Sprintf("%.0f%%", stats.CPU.TotalUsage))
+			if windowVisible.Load() {
+				pushToFrontend(stats)
+			}
+		}
+
+		update()
 
 		ticker := time.NewTicker(3 * time.Second)
 		defer ticker.Stop()
 		for {
 			select {
 			case <-ticker.C:
-				push()
+				update()
+			case <-showCh:
+				update()
 			case <-app.Context().Done():
-				// アプリ終了時にゴルーチンをクリーンに停止する
 				return
 			}
 		}
