@@ -1,4 +1,4 @@
-module cpumonitor
+module github.com/naka93-gh/sysmoni
 
 go 1.25.0
 

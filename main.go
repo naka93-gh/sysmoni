@@ -43,8 +43,8 @@ func main() {
 	frontendFS, _ := fs.Sub(assets, "frontend")
 
 	app := application.New(application.Options{
-		Name:        "CPU Monitor",
-		Description: "CPU/Memory Monitor",
+		Name:        "sysmoni",
+		Description: "System Monitor",
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(frontendFS),
 		},
