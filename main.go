@@ -1,8 +1,7 @@
 // main.go — Wails v3 アプリの起動とシステムトレイ設定
 //
 // Wails v3 を使い、macOS メニューバーに常駐する CPU モニターを構成する。
-// Vite 等のビルドツールを使わず、frontend/ の HTML/CSS/JS を embed.FS で
-// 直接バイナリに埋め込んでいる。
+// frontend/ は Vite + SolidJS でビルドし、dist/ を embed.FS で埋め込む。
 //
 // Go→JS のデータ送信には ExecJS を使用。ただし macOS WebKit は hidden
 // ウィンドウの JS 実行を遅延するため、ウィンドウ表示中のみ push する。
@@ -34,13 +33,11 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/icons"
 )
 
-//go:embed all:frontend
+//go:embed all:frontend/dist
 var assets embed.FS
 
 func main() {
-	// embed.FS は "frontend/index.html" のようなパスになるため、
-	// fs.Sub で "frontend" を剥がし、ルート直下に index.html が来るようにする。
-	frontendFS, _ := fs.Sub(assets, "frontend")
+	frontendFS, _ := fs.Sub(assets, "frontend/dist")
 
 	app := application.New(application.Options{
 		Name:        "sysmoni",

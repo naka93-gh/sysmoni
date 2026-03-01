@@ -3,48 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CPU Monitor</title>
-  <link rel="stylesheet" href="/style.css">
+  <title>sysmoni</title>
 </head>
 <body>
-  <!--
-    ポップアップウィンドウの構造:
-      CPU セクション — 全体使用率バー + コア別バー（main.js で動的生成）
-      Memory セクション — 使用率バー + 使用量/総量テキスト
-
-    初期値は "--%" 表示。main.js が /api/stats を fetch して値を更新する。
-  -->
-  <div class="container">
-    <section class="section">
-      <div class="section-header">
-        <h2>CPU</h2>
-        <span id="cpu-total" class="badge">--%</span>
-      </div>
-      <div class="bar-track">
-        <div id="cpu-total-bar" class="bar-fill"></div>
-      </div>
-      <!-- コア別バーは main.js の updateCPU() で動的に生成される。
-           コア数はマシンによって異なるため静的に記述できない。 -->
-      <div id="cpu-cores" class="cores-grid"></div>
-    </section>
-
-    <div class="divider"></div>
-
-    <section class="section">
-      <div class="section-header">
-        <h2>Memory</h2>
-        <span id="mem-percent" class="badge">--%</span>
-      </div>
-      <div class="bar-track">
-        <div id="mem-bar" class="bar-fill mem"></div>
-      </div>
-      <div class="mem-detail">
-        <span id="mem-used">-- GB</span>
-        <span class="mem-sep">/</span>
-        <span id="mem-total">-- GB</span>
-      </div>
-    </section>
-  </div>
-  <script src="/main.js"></script>
+  <div id="root"></div>
+  <script type="module" src="/src/index.tsx"></script>
 </body>
 </html>

@@ -1,16 +1,3 @@
-/*
- * style.css — macOS メニューバーポップアップ風のダーク UI
- *
- * デザイン方針:
- *   - macOS ネイティブのポップオーバーに近い見た目を CSS だけで再現する
- *   - Wails 側で MacBackdropTranslucent を有効にしているため、
- *     body の背景を半透明にしてすりガラス効果を活かす
- *   - font-variant-numeric: tabular-nums で数値が等幅になり、
- *     パーセンテージの変動でレイアウトがガタつかない
- *   - バーの width と background-color に CSS transition を設定し、
- *     3秒ごとの更新を滑らかにアニメーションさせる
- */
-
 * {
   margin: 0;
   padding: 0;
@@ -18,15 +5,11 @@
 }
 
 body {
-  /* -apple-system で macOS の San Francisco フォントを使用 */
   font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
-  /* 0.92 の半透明にして MacBackdropTranslucent の効果を見せる */
   background: rgba(30, 30, 30, 0.92);
   color: #e0e0e0;
-  /* モニターアプリなのでテキスト選択は不要 */
   -webkit-user-select: none;
   user-select: none;
-  /* ウィンドウサイズ固定なのでスクロール不要 */
   overflow: hidden;
 }
 
@@ -53,14 +36,12 @@ body {
   letter-spacing: 0.5px;
 }
 
-/* 右上に大きく表示される使用率の数値 */
 .badge {
   font-size: 20px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 
-/* 全体使用率バーのトラック（背景） */
 .bar-track {
   height: 8px;
   background: rgba(255, 255, 255, 0.08);
@@ -69,23 +50,18 @@ body {
   margin-bottom: 12px;
 }
 
-/* バーの塗り部分。width は JS から動的に設定される */
 .bar-fill {
   height: 100%;
   border-radius: 4px;
   width: 0%;
-  /* 0.6s は更新間隔 3s に対して短すぎず長すぎない値 */
   transition: width 0.6s ease, background-color 0.6s ease;
-  /* CPU のデフォルト色。JS で usageColor() により上書きされる */
   background: #4ade80;
 }
 
-/* メモリバーは青色固定。CPU と違い、高使用率でも異常ではないことが多いため */
 .bar-fill.mem {
   background: #60a5fa;
 }
 
-/* コア別バーを 2 列グリッドで配置。8〜24+ コアに対応するためグリッドを使う */
 .cores-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -106,7 +82,6 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-/* コア別バーは全体バーより細い 4px。情報密度を上げるため */
 .core-track {
   flex: 1;
   height: 4px;
@@ -125,13 +100,11 @@ body {
 .core-pct {
   font-size: 10px;
   color: #888;
-  /* "100%" が収まる幅を確保 */
   min-width: 28px;
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
 
-/* CPU セクションとメモリセクションの区切り線 */
 .divider {
   height: 1px;
   background: rgba(255, 255, 255, 0.1);
