@@ -122,3 +122,98 @@ body {
   margin: 0 4px;
   color: #555;
 }
+
+.net-badge {
+  font-size: 12px;
+  font-weight: 600;
+  color: #888;
+}
+
+.net-speeds {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.net-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.net-arrow {
+  font-size: 14px;
+  font-weight: 700;
+  min-width: 16px;
+}
+
+.net-arrow.up {
+  color: #f87171;
+}
+
+.net-arrow.down {
+  color: #4ade80;
+}
+
+.net-value {
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: #ccc;
+}
+
+.host-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.host-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #e0e0e0;
+}
+
+.host-detail {
+  font-size: 12px;
+  color: #888;
+}
+
+.proc-badge {
+  font-size: 12px;
+  font-weight: 600;
+  color: #888;
+}
+
+.proc-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.proc-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.proc-name {
+  flex: 1;
+  color: #ccc;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.proc-cpu {
+  min-width: 48px;
+  text-align: right;
+  color: #e0e0e0;
+}
+
+.proc-mem {
+  min-width: 48px;
+  text-align: right;
+  color: #888;
+}

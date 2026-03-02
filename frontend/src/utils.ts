@@ -10,3 +10,23 @@ export function formatBytes(bytes: number): string {
   const gb = bytes / (1024 * 1024 * 1024);
   return gb >= 10 ? `${gb.toFixed(0)} GB` : `${gb.toFixed(1)} GB`;
 }
+
+// bytes/sec を KB/s または MB/s に自動切替して表示。
+export function formatSpeed(bytesPerSec: number): string {
+  const kb = bytesPerSec / 1024;
+  if (kb < 1024) {
+    return `${kb.toFixed(1)} KB/s`;
+  }
+  const mb = kb / 1024;
+  return `${mb.toFixed(1)} MB/s`;
+}
+
+// 秒数を "Xd Xh Xm" 形式に変換。
+export function formatUptime(seconds: number): string {
+  const d = Math.floor(seconds / 86400);
+  const h = Math.floor((seconds % 86400) / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  if (d > 0) return `${d}d ${h}h ${m}m`;
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m}m`;
+}

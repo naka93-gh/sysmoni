@@ -18,7 +18,14 @@ declare global {
 
 // Go → ExecJS → ここ → setStats → 各コンポーネントがリアクティブに更新
 window.handleStats = (data: SystemStats) => {
-  if (data?.cpu && data?.mem) {
+  if (
+    data?.host &&
+    data?.cpu &&
+    data?.mem &&
+    data?.disk &&
+    data?.net &&
+    data?.processes
+  ) {
     setStats(data);
   }
 };
